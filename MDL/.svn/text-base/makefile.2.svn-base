@@ -1,0 +1,6 @@
+demo:
+	python2.7 greedySearch_nStop.py ../../Graphs/as-oregon.graph ../../models/unified/oregon/unified_orderedALL_OREGON.txt > output_greedy_TOP20_as_oregon_deep_copy.txt &
+	python2.7 greedySearch_nStop.py ../../Graphs/epinions_sym.graph ../../models/unified/epinions/unified_orderedALL_EPINIONS.txt > output_greedy_TOP20_epinions_deep_copy.txt &
+	python2.7 greedySearch_nStop.py ../../Graphs/enron.graph ../../models/unified/enron/unified_orderedALL_ENRON.txt > output_greedy_TOP20_enron_deep_copy.txt &
+	python2.7 greedySearch_nStop.py ../../Graphs/flickr.graph ../../models/unified/flickr/unified_orderedALL_FLICKR.txt > output_greedy_TOP20_flickr_deep_copy.txt &
+	python2.7 greedySearch_nStop.py ../../Graphs/wwwbb_sym.graph ../../models/unified/wwwbb/unified_orderedALL_WWWBB.txt > output_greedy_TOP20_wwwbb_deep_copy.txt &

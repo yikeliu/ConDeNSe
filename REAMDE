@@ -1,0 +1,3 @@
+This version of ConDeNSe uses 7 clustering methods and STEP heuristic for
+summary assembly.
+Change dataset and run with file 'vog_autorun.sh'.

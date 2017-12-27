@@ -1,0 +1,575 @@
+\documentclass[10pt]{article}
+
+\usepackage{amsmath,amsfonts}
+\usepackage{url} 
+\usepackage{fullpage}
+\usepackage[norefs,nocites]{refcheck}  % options:norefs,nocites,msgs,chkunlbld
+%\makeatletter\let\NAT@parse\undefined\makeatother % enbl natbib with IEEE cls 
+\usepackage[numbers,sort&compress,sectionbib]{natbib} % \cite,\citet,\citep,\ldots
+%\usepackage{cite}    % citation numbers sorted and "ranged" (alt to natbib)
+%\usepackage{graphicx,psfrag}
+%\usepackage{ifthen}        % \ifthenelse,\boolean,\newboolean,\setboolean
+%\usepackage{subfigure}  % \subfigure[a]{\includegraphics\ldots\label{fi:\ldots}}
+%\usepackage{sidecaption}    % \sidecaption (to be placed inside figure env.
+%\usepackage[dvips,colorlinks=false,breaklinks=true]{hyperref}
+%\usepackage{mathptmx} % slightly more compressed font. 
+
+\usepackage[fancythm,fancybb,morse]{jphmacros2e} 
+
+%% Macros & options for this Document
+
+%\allowdisplaybreaks
+
+%% Start of Document
+
+
+
+\title{\Large\sc An Efficient MATLAB Algorithm for Graph Partitioning\\[1em]
+  \large Technical Report} 
+
+\author{\jph}
+
+\date{October 20, 2006\thanks{Revised version of a technical report
+    with the same title, dated October 8, 2004}}
+
+\begin{document}                        \maketitle
+
+\begin{abstract}
+  This report describes a graph partitioning algorithm based on
+  spectral factorization that can be implemented very efficiently with
+  just a hand full of MATLAB commands. The algorithm is closely
+  related to the one proposed by \citet{PhillipsKokotovicOct81} for
+  state-aggregation in Markov chains. The appendix contains a MATLAB
+  script that implements the algorithm. This algorithm is available
+  online at \cite{HespanhaOct04}.
+\end{abstract}
+
+\section{Graph partitioning}
+
+Consider an undirected graph $G=(V,E)$ with vertex set $V$ and edge
+set $E$, together with a positive edge-cost function $c:E\to[0,\infty)$. A
+\emph{$k$-partition of $V$} is a collection
+$\scr{P}=\{V_1,V_2,\dots,V_k\}$ of $k$ disjoint subsets of $V$, whose
+union equals $V$. The \emph{cost associated with $\scr{P}$} is defined
+by
+\begin{align*}
+  C(\scr{P})\eqdef \sum_{i\neq j}\; \sum_{\substack{(v,\bar v)\in E\\v\in V_i,\bar v\in V_j}}
+  \bar c(v,\bar v).
+\end{align*}
+The \emph{$\ell$-bounded Graph Partitioning ($\ell$-GP) problem} consists of
+finding a $k$-partition $\scr{P}$ that minimizes $C(\scr{P})$, with no
+element in partition having more than $\ell$ vertices.
+
+\medskip
+
+The smallest value of $\ell$ for which this problem is solvable is $\ell=\lceil
+n/k\rceil$, where $n$ denotes the number of vertices in $V$.  When $\ell$
+takes this value we say that the partition is \emph{perfectly
+  balanced}. For $\ell=\lceil (1+\epsilon)n/k\rceil$ we say that the partition has an
+\emph{$\epsilon$ percentage of imbalance} . Several algorithms to solve this
+problem for the special case of $\bar c(\cdot)$ constant and equal to one
+are compared in
+\url{http://staffweb.cms.gre.ac.uk/~c.walshaw/partition/}.
+
+\medskip
+
+Without loss of generality we assume that the graph is fully connected
+and set $c(v,\bar v)=0$ for every edge not present in the original
+graph. In this case, we can simply write
+\begin{align*}
+  C(\scr{P})\eqdef \sum_{i\neq j}\; \sum_{v\in V_i,\bar v\in V_j} c(v,\bar v).
+\end{align*}
+Note that since the graph is undirected, $c(v,\bar v)=c(\bar v,v)$, $\forall
+v,\bar v\in V$.
+
+\medskip
+
+This problem is related to the \emph{MAX $k$-CUT problem} in
+\cite{FriezeJerrum97}, which consists of finding a partition for $V$
+that maximizes the reward\footnote{The reward in
+  \cite{FriezeJerrum97} is actually half of the one presented here
+  because in that reference the outer summation was only over $i<j$.}
+\begin{align*}
+  R(\scr{P})\eqdef \sum_{i\neq j} \sum_{v\in V_i,\bar v\in V_j}r(v,\bar v).
+\end{align*}
+for a given edge-reward $r:V\times V\to[0,\infty)$ with the property that
+$r(v,\bar v)=r(\bar v,v)$, $\forall v,\bar v\in V$.
+\citet{AgeevSviridenkoDec99} considered a variation of the MAX $k$-CUT
+problem, called the \emph{Hypergraph MAX $k$-CUT problem with given
+  sizes of parts (HM$k$C)}, which adds the constraint that
+$|V_i|=s_i$, $\forall i$ for a given set of $k$ integers
+$\{s_1,s_2,\dots,s_k\}$.
+
+
+\subsection{Matrix formulation of the $\ell$-GP problem}
+
+We are pursuing spectral techniques to solve this problem, i.e.,
+techniques based on eigenvector/eigenvalue decomposition. To this
+effect, it is convenient to redefine the problem in matrix form.
+
+\medskip
+
+We say that $n\times k$ matrix $\Pi=[\pi_{v j}]$ is a \emph{$k$-partition
+  matrix} if $\pi_{v j}\in\{0,1\}$, $\forall v,j$, $\Pi$ is an orthogonal matrix
+(i.e., $\Pi'\Pi$ is diagonal), and $\|\Pi\|_F=\sqrt n$. The notation $\| \cdot \|_F$
+denotes the Frobenius norm, i.e., $\|\Pi\|_F\eqdef\sqrt{\trace(\Pi' \Pi)}$.
+One can show that a $n\times k$ matrix $\Pi$ is a $k$-partition matrix if and
+only if each row of $\Pi$ is a vector of the canonical basic of $\R^k$
+(cf.~Proposition~\ref{pr:k-partition} in the Appendix). Therefore a
+$k$-partition matrix $\Pi$ is completely specified by a $n$-vector whose
+$v$th entry contains the index within the $v$th row of $\Pi$ of the
+entry equal to one. We call this vector the \emph{partition vector
+  associated with $\Pi$.} The following two lemmas, which are proved in
+the appendix, will be needed.
+
+\begin{lemma}\label{le:partition-matrix}
+  There is a one-to-one correspondence between the set of
+  $k$-partitions of $V\eqdef\{1,2,\dots,n\}$ and the set of
+  $k$-partition matrices $\Pi$. The two correspondences can be defined
+  by
+  \begin{enumerate}
+  \item Given a $k$-partition $\scr{P}=\{V_1,V_2,\dots,V_k\}$ of $V$,
+    a $k$-partition matrix $\Pi=[\pi_{v j}]$ can be defined by
+    \begin{align}\label{eq:pi-v}
+      \pi_{v j}=\begin{cases}
+        1 & v\in V_j\\
+        0 & v\notin V_j
+      \end{cases}
+      \qquad \forall v\in V, j\in\{1,2,\dots,k\}.
+    \end{align}
+
+  \item Given a $k$-partition matrix $\Pi=[\pi_{v j}]$, a $k$-partitions
+    $\scr{P}=\{V_1,V_2,\dots,V_k\}$ of $V$ can be defined by
+    \begin{align}\label{eq:v-pi}
+      V_j\eqdef \{ v\in V:\pi_{v j}=1 \}, \qquad \forall j\in\{1,2,\dots,k\}.
+    \end{align}
+  \end{enumerate}
+  For these correspondences 
+  \begin{align*}
+    \Pi'\Pi&=\diag[ |V_1|,|V_2|, \dots, |V_k| ]
+  \end{align*}
+  and the $v$th entry $p_v$ of the partition vector $p$ associated
+  with $\Pi$ specifies to which $V_i$ does the $v$th vertex belong,
+  i.e., $v\in V_{p_v}$, $\forall v\in V$.\frqed
+\end{lemma}
+It turns out that it is easy to express the cost associated with a
+$k$-partition of $V$  in terms of the corresponding $k$-partition
+matrix:
+\begin{lemma}\label{le:c-matrix}
+  Let $\scr{P}=\{V_1,V_2,\dots,V_k\}$ be a $k$-partition of
+  $V\eqdef\{1,2,\dots,n\}$ and $\Pi=[\pi_{v j}]$ the corresponding
+  $k$-partition matrix. Then
+  \begin{align*}
+    C(\scr{P})=\mbf 1_n' A \mbf 1_n-\trace(\Pi'A \Pi),
+  \end{align*}
+  where $A$ is an $n\times n$ matrix whose $v \bar v$th entry is equal to
+  $c(v,\bar v)$ and $\mbf 1_n$ a $n$-vector with all entries equal to one.\frqed
+\end{lemma}
+These two lemmas allow us to reformulate the $\ell$-GP problem as follows
+\begin{subequations}\label{eq:optimization}
+\begin{align}
+  \text{maximize }\quad    & \trace(\Pi'A \Pi)\\
+  \text{subject to}\quad  & \pi_{v j}\in\{0,1\},\; \forall v,j\\
+  &\Pi \text{ orthogonal}\\
+  &\|\Pi\|_F=\sqrt n\\
+  &\Pi'\Pi\leq \ell I_{k\times k}.
+\end{align}
+\end{subequations}
+Since all entries of $\Pi$ belong to $\{0,1\}$, this optimization could
+also be formulated as follows
+\begin{subequations}
+\begin{align*}
+  \text{maximize }\quad    & \trace(\Pi'A \Pi)\\
+  \text{subject to}\quad  & \pi_{v j}\in\{0,1\},\; \forall v,j\\
+  &\Pi \text{ orthogonal}\\
+  &\mbf 1_n \Pi\mbf 1_k=n\\
+  &\mbf 1_n \Pi e_i\leq \ell,
+\end{align*}
+\end{subequations}
+where $e_i$ denotes the $i$th vector in the canonical basis of $\R^k$.
+
+\medskip
+
+In this paper, we restrict our attention to the case where the matrix
+$A$ is (doubly) stochastic, i.e.,
+\begin{align*}
+  \sum_{v\in V} c(v,\bar v)=1, \quad \forall v\in\scr{V}.
+\end{align*}
+This corresponds to a situation where the costs associated with each
+node are ``normalized'' so that when the degree of a node is high then
+the costs associated with its edges must be low (on the average). By
+\emph{degree} of a node $v$, we mean the number of nodes $\bar v$ for
+which $c(v,\bar v)>0$. The following MATLAB commands can be used to
+normalize a nonnegative symmetric matrix $A$, making it doubly
+stochastic:
+\begin{verbatim}
+   A=A/(max(sum(A)));
+   A=A+sparse(1:n,1:n,1-sum(A));
+\end{verbatim}
+
+
+\section{Spectral partition}
+
+For a doubly stochastic matrix $A$, all its eigenvalues are real and
+smaller than or equal to one, with one of them exactly equal to one.
+In this case the optimization \eqref{eq:optimization} is always
+smaller than or equal to $n$. This is because, for an arbitrary
+$k$-partition matrix $\Pi$ that satisfies $\trace{\Pi'\Pi}=n$, we must have
+\begin{align}\label{eq:upper-n}
+  \trace(\Pi'A\Pi)=\sum_{i=1}^k \pi_i' A\pi_i \leq \sum_{i=1}^k \pi_i' \pi_i =\trace{\Pi'\Pi}=n
+\end{align}
+where $\pi_i$ denotes $\Pi$'s $i$th column. Here we used the fact that the
+largest eigenvalue of $A$ is no larger than one and therefore
+$\pi_i' A\pi_i\leq \pi_i' \pi_i$.
+
+\medskip
+
+Let $\lambda_1=1\geq \lambda_2\geq \cdots\geq \lambda_k$ be the largest
+eigenvalues of $A$ and $u_1,u_2,\dots,u_k$ the corresponding
+orthonormal eigenvectors. It is convenient to define
+\begin{align*}
+  U&\eqdef\matt{u_1&u_2&\cdots&u_k}, & D&\eqdef\diag[\lambda_1,\lambda_2,\dots,\lambda_k],
+\end{align*}
+for which $U' U=I_{k\times k}$ and $A U=D U$. The computation of $U$ and $D$ can
+be done very efficiently in MATLAB for large sparse matrices using the
+following commands:
+\begin{verbatim}
+   options.issym=1;               % matrix is symmetric
+   options.isreal=1;              % matrix is real
+   options.tol=1e-6;              % decrease tolerance 
+   options.maxit=500;             % increase maximum number of iterations
+   [U,D]=eigs(A,k,'la',options);  % only compute 'k' largest eigenvalues/vectors
+\end{verbatim}
+
+\medskip
+
+Suppose that we set
+\begin{align*}
+  \Pi\eqdef U Z,
+\end{align*}
+for some matrix $Z\in\R^{k\times k}$. In this case,
+\begin{align*}
+  \Pi'\Pi=Z' U' U Z=Z' Z
+\end{align*}
+and 
+\begin{align*}
+  \trace(\Pi'A\Pi)=\trace{Z' U' A U Z}=\trace{Z' D Z}.
+\end{align*}
+From this we conclude that the upper bound in \eqref{eq:upper-n} can
+be achieved exactly if the following conditions hold
+\begin{enumerate}
+\item \label{en:one} $D=I$ (i.e., there are $k$ independent eigenvectors
+  associated with the eigenvalue equal to one)
+\item \label{en:partition} $U Z$ is a $k$-partition matrix.
+\item \label{en:sum} $Z' Z\leq \ell I_{k\times k}$.
+\end{enumerate}
+The algorithm that we propose to approximately solve the $\ell$-GP
+problem is applicable when \ref{en:one} holds approximately. It
+consists of setting
+\begin{align}\label{eq:pi-p}
+  \Pi\eqdef \arg \min_{\bar \Pi} \|\bar \Pi-U Z\|_F,
+\end{align}
+where the minimization is carried out over the set of $k$-partition
+matrices and $Z$ is a $k\times k$ matrix obtained by an Heuristic algorithm
+aimed at making the conditions \ref{en:partition}--\ref{en:sum}
+approximately hold. For reasons that will become clear shortly, we
+call this algorithm the \emph{clustering algorithm}. Given a matrix
+$Z$, we call the computation of optimal $\Pi$ in \eqref{eq:pi-p} the
+\emph{projection algorithm}. We now describe both algorithms.
+
+\subsection{Projection algorithm}
+
+Given a matrix $Z$ the computation of $\Pi$ that minimizes
+\eqref{eq:pi-p} is straightforward: Since
+\begin{align*}
+  (\bar \Pi'-Z' U')(\bar \Pi-Z U)= \bar \Pi'\bar \Pi+ Z' Z- Z' U' \bar \Pi-\bar\Pi U Z,
+\end{align*}
+denoting by $\bar \pi_{v i}$ and by $\bar u_{v i}$ the $v i$th entries of the $n\times
+k$ matrices $\bar\Pi$ and $\bar U\eqdef U Z$, respectively, we conclude that
+\begin{align*}
+  \|\bar \Pi-U Z\|_F^2=n+\|Z\|_F+2\trace(Z' U' \bar \Pi)
+  =n+\|Z\|_F-2\sum_{i=1}^k \sum_{v=1}^n \bar u_{i v} \bar\pi_{v i}
+\end{align*}
+Denoting by $i_v$ the index of the (only) entry in the $v$th row of
+$\bar\Pi$ whose entry is equal to one, we further conclude that
+\begin{align*}
+  \|\bar \Pi-U Z\|_F^2=n+\|Z\|_F-2\sum_{v=1}^n \bar u_{i_v v} \bar\pi_{v i_v}
+\end{align*}
+Therefore, to minimize $\|\bar \Pi-U Z\|_F$ one should simply chose $i_v$
+to be equal to the index of the largest element in the $v$th row of $U
+Z$. The computation of the optimal (sparse) matrix $\Pi$ and the
+associated partition vector $p$ can be done very efficiently in MATLAB
+using the following commands:
+\begin{verbatim}
+   [dummy,p]=max(U*Z,[],2);
+   Pi=sparse(1:length(p),p,1);
+\end{verbatim}
+
+\subsection{Clustering algorithm}
+
+Suppose that the $n$ rows of the $n\times k$ matrix $U$ are clustered
+around $k$ orthogonal row vectors $z_1,z_2,\dots,z_k$ and let $n_i$
+denote the number of row clustered around $z_i$. Defining
+\begin{align*}
+  Z\eqdef \matt{z_1\\z_2\\\vdots\\z_k}^{-1}
+  =\matt{\frac{z_1'}{\|z_1\|^2}&\frac{z_2'}{\|z_2\|^2}&\cdots&\frac{z_k'}{\|z_k\|^2}},
+\end{align*}
+the $v$th row of $\bar U\eqdef U Z$ is given by
+\begin{align*}
+  \bar u_v = \matt{\frac{\<u_v,z_1\>}{\|z_1\|^2}&\frac{\<u_v,z_2\>}{\|z_2\|^2}&\cdots&\frac{\<u_v,z_k\>}{\|z_k\|^2}},
+\end{align*}
+where $u_v$ denotes the $v$th row of $U$. Since $u_v$ is close to one
+of the $v_i$ and all $z_i$ are orthogonal, we conclude that $\bar u_v$
+will be close to one of the vectors in the canonical base of $\R^k$.
+In practice, this means that $U Z$ is close to a $k$-partition matrix.
+Moreover, since there are $n_k$ rows close to $z_k$, the number of
+entries close to one in the $j$th column of $\bar U\eqdef U Z$ is
+approximately $n_k$. Therefore
+\begin{align*}
+  \Pi'\Pi \approx \diag[n_1,n_2,\dots,n_k].
+\end{align*}
+The computation of $Z$ can then be viewed as a clustering algorithm
+whose goal is to determine orthogonal vectors $z_1,z_2,\dots,z_k$
+around which the rows of $U$ are clustered, with no cluster larger
+than $\ell$.
+
+
+\paragraph{The simple case}
+
+When the vectors $z_i$ defined above exist and the clustering is
+tight, these vectors can be easily found because they are orthogonal
+and therefore far apart. In practice, one simply needs to select
+$k$-rows of $U$ that are far apart from each other so that we can be
+sure that no two belong to the same cluster and take then as ``cluster
+representatives.''  Find such rows is essentially a pivoting problem
+like the one that arises in Gauss elimination. The following algorithm
+can be used to select such rows: Let $(Q,R,E)$ be a
+\emph{QR-factorization with pivoting} of $U'$, i.e., $Q^{k\times k}$ is an
+orthonormal matrix, $R\in\R^{k\times n}$ is an upper triangular matrix with
+elements in the main diagonal of decreasing magnitude, and $E\in\R^{n\times
+  n}$ a permutation matrix such that
+\begin{align*}
+  U' E = Q R \eqv
+  E' U = R' Q'.
+\end{align*}
+Partitioning $E$ as 
+\begin{align*}
+  E=\matt{E_1&E_2}\in\R^{n\times n}, \qquad E_1\in\R^{n\times k}, E_2\in\R^{n\times(n-k)},
+\end{align*}
+the $k\times k$ matrix $Z$ in \eqref{eq:pi-p} should be selected by
+\begin{align*}
+  Z\eqdef (E_1'U)^{-1},
+\end{align*}
+This algorithm essentially select the $z_i$'s to be the top $k$ rows
+of the permuted matrix $E' U$ and $Z$ maps these rows to the vectors
+of the canonical basis of $R^k$. The computation of $Z$ can be done
+efficiently by noting that if we partition $R$ as
+\begin{align*}
+  R=\matt{R_1&R_2}\in\R^{k\times n}, \qquad R_1\in\R^{k\times k}, R_2\in\R^{k\times(n-k)},
+\end{align*}
+we obtain
+\begin{align*}
+  V'\matt{E_1&E_2}=Q \matt{R_1&R_2}
+  \imply
+  E_1'V=R_1' Q'
+\end{align*}
+and therefore $Z$ can be obtained by the following product of $k\times k$ matrices
+\begin{align*}
+  Z=Q (R_1')^{-1}.
+\end{align*}
+This can be done efficiently in MATLAB using the following commands:
+\begin{verbatim}
+   [Q,R,E]=qr(U',0);
+   Z=Q*(R(:,1:k)')^(-1);
+\end{verbatim}
+However, this algorithm provides no guarantee that the cluster sizes
+will not exceed $\ell$.
+
+\paragraph{The tough case}
+
+When the rows of $U$ are not tightly clustered more sophisticated
+algorithms are needed. In this case, one can use a general purpose
+clustering algorithm such as $k$-means or the Expectation Maximization
+(EM) algorithm. Note that the matrix $\Pi$ can be obtained directly from
+the clustering procedure by associating each cluster with one of the
+vectors in the canonical basis of $\R^k$ and replacing each row of $U$
+by the basis vector associated with its cluster.
+
+\medskip
+
+Since the $k$-mean clustering algorithm is implemented in MATLAB, we
+can use it to obtain the matrix $\Pi$ using the following commands:
+\begin{verbatim}
+   [p,zs]=kmeans(U,k,'distance','cosine');
+   Pi=sparse(1:length(p),p,1);
+\end{verbatim}
+This algorithm also does not guarantee that the cluster sizes will not
+exceed $\ell$, but it can be adapted to do so \cite{ZhongGhoshMay03}.
+
+\drafttext{
+Another option is to use the EM iterative algorithm for clustering:
+\begin{enumerate}
+\item Initialize $\mu_j^0$, $P_j^0$, $\Sigma_j^0$, $\forall j\in\{1,2,\dots,k\}$.
+\item{} [E-step] Compute the probabilities
+  \begin{align*}
+    p_{v j}^t&=\frac{P_j^{t-1}}{(2\pi)^\frac{k}{2} (\det \Sigma_j^{t-1})^\frac{1}{2}}
+    e^{-\frac{1}{2}(u_v-\mu_j^{t-1})'(\Sigma_j^{t-1})^{-1}(u_v-\mu_j^{t-1})},\quad \forall y,j,
+  \end{align*}
+  where $u_v$ denotes the $v$th row of $V$.
+\item{} [M-step] Re-compute 
+  \begin{align*}
+    P_j^t&=\frac{1}{n}\sum_v p_{v j}^t, &
+    \mu_j^t&=\frac{\sum_v p_{v j}^t u_v}{\sum_v p_{v j}^t}, &
+    \Sigma_j^t&=\frac{\sum_v p_{v j}^t (u_v-\mu_j^t)'(u_v-\mu_j^t)}{\sum_v p_{v j}^t}.
+  \end{align*}
+\item Repeat until all values converge.
+\end{enumerate}
+The matrix $Z$ can then be selected to map the cluster centers $\mu_j$
+to the vectors of the canonical basis of $R^k$ as follows
+\begin{align*}
+  Z \eqdef \matt{\mu_1\\\mu_2\\\cdots\\\mu_k}^{-1}.
+\end{align*}
+When this algorithm results in very unbalanced clusters one may
+re-normalize the $p_{v j}$ at each step to keep all the $P_j$
+approximately equal. This can be achieved, e.g., by dividing all the
+$p_{v j}^t$ by $P_j$ before computing $\mu_j^t$ and $\Sigma_j^t$ in the
+M-step. }
+
+
+\appendix
+
+\section{Appendix}
+
+\subsection{Technical Results}
+
+\begin{proposition}\label{pr:k-partition}
+  A $n\times k$ matrix $\Pi$ is a $k$-partition matrix if and only if each
+  row of $\Pi$ is a vector of the canonical basic of $\R^k$.\frqed
+\end{proposition}
+
+\begin{proof-proposition}{\ref{pr:k-partition}}
+  Let $\Pi$ be a $k$-partition matrix with columns
+  $\pi_1,\pi_2,\dots,\pi_k\in\R^n$.  Each row of $\Pi$ must have at most a
+  single one because otherwise, if there were two ones in columns
+  $\pi_i$ and $\pi_j$, then $\pi_i'\pi_j\geq 1$ and $\Pi$ would not be orthogonal.
+  On the other hand, every row of $\Pi$ must have at least a one because
+  for a matrix whose entries are in $\{0,1\}$, its squared Frobenius
+  norm $\|\Pi\|_F^2$ is exactly the total number of entries equal to one.
+  Since each row can have at most a one, every row must actually have
+  a one to get $\|\Pi\|_F^2=n$. This proves that if $\Pi$ is a $k$-partition
+  matrix then each row of $\Pi$ is a vector of the canonical basic of
+  $\R^k$.
+
+  \medskip
+  
+  Conversely, suppose that each row of $\Pi$ is a vector of the
+  canonical basic of $\R^k$. Then all entries of $\Pi$ belong to the set
+  $\{0,1\}$ and $\|\Pi\|_F^2=n$ since its squared Frobenius norm is equal to
+  the number of entries equal to one (one per row). Moreover, $\Pi$ is
+  orthogonal because if $\pi_i$ and $\pi_j$ are two distinct columns of
+  $\Pi$ then each row of these vector must have at least one zero and
+  therefore $\pi_i'\pi_j=0$, $\forall i\neq j$. \frQED
+\end{proof-proposition}
+
+\begin{proof-lemma}{\ref{le:partition-matrix}}
+  To show that \eqref{eq:pi-v} defines a $k$-partition matrix, we must
+  show that $\Pi'\Pi$ is diagonal an that its trace equal $n$. To this
+  effect, let $\pi_i$ and $\pi_j$ be two distinct columns of $\Pi$. For
+  every row $v$, at least one of these column vectors must have a
+  zero, since otherwise the corresponding node $v$ would have to
+  belong to both $V_i$ and $V_j$.  This means that $\pi_i'\pi_j=0$, $\forall i\neq
+  j$ and therefore $\Pi$ is orthogonal. On the other hand, $\pi_i$ has an
+  entry equal to one for each node than belongs to $V_i$ so
+  $\pi_i'\pi_i=V_i$, $\forall i$. Therefore $\trace \Pi'\Pi=\sum_j |V_j|=|V|=n$ because
+  the $V_i$ are a $k$-partition of $V$.
+
+  \medskip
+  
+  To show that the sets defined by \eqref{eq:v-pi} define a $k$
+  partition of $V$, we must show that they are disjoint and their
+  union is equal to $V$. These sets are indeed disjoint because
+  otherwise if $v\in V_i$ and $v\in V_j$, then $\pi_{v i}=\pi_{v j}=1$ and
+  therefore the inner product of the corresponding columns would be
+  nonzero. Moreover, the $i$th element of the main diagonal of $\Pi'\Pi$
+  is equal to the number of ones in $V_i$ and therefore $\sum_j
+  |V_j|=\trace \Pi'\Pi=n$ because $\Pi$ is a $k$-partition matrix. \frqed
+\end{proof-lemma}
+
+\begin{proof-lemma}{\ref{le:c-matrix}}
+  From the definition of $A$, we have that
+  \begin{align*}
+    A \Pi = \Big[\sum_{\bar v\in V} c(v,\bar v)\pi_{\bar v j}\Big] = \Big[\sum_{\bar
+      v\in V_j} c(v,\bar v)\Big].
+  \end{align*}
+  Therefore
+  \begin{align*}
+    C(\scr{P})&\eqdef \sum_{i\neq j} \sum_{v\in V_i} \sum_{\bar v\in V_j} c(v,\bar v)
+    =\sum_{i\neq j} \sum_{v\in V_i} (A \Pi)_{v j}
+  \end{align*}
+  where $(A \Pi)_{v j}$ denotes the $v i$th entry of the matrix $A
+  \Pi$. We can re-write the above summation as
+  \begin{align*}
+    C(\scr{P})
+    &=\sum_{i\neq j} \sum_{v\in V} \pi_{v i}(A \Pi)_{v j}
+    =\sum_{i\neq j}(\Pi'A \Pi)_{i j}
+  \end{align*}
+  where now $(\Pi'A \Pi)_{i j}$ denotes the $i j$th entry of the matrix
+  $\Pi'A \Pi$. The result then follows by decomposition the last summation
+  as
+  \begin{align*}
+    C(\scr{P})
+    &=\sum_{i, j}(\Pi'A \Pi)_{i j}-\sum_{i}(\Pi'A \Pi)_{i i}\\
+    &= \mbf 1_k' \Pi'A \Pi_k \mbf 1-\trace(\Pi'A \Pi)\\
+    &= \mbf 1_n' A \mbf 1_n-\trace(\Pi'A \Pi)
+  \end{align*}
+  where we used the property of $k$-partition matrices that $\Pi \mbf
+  1_k=\mbf 1_n$. \frQED
+\end{proof-lemma}
+
+\subsection{MATLAB script}
+
+The algorithm described in this paper can be implemented using the
+following MATLAB script. A more complete version of this script is
+available online at
+\url{http://www.ece.ucsb.edu/~hespanha/techrep.html}
+
+{\small
+\begin{verbatim}
+function [ndx,Pi,cost]= grPartition(C,k,nrep);
+% Inputs:
+% C - n by n edge-weights matrix.
+% k - desired number of partitions
+% nrep - number of repetion for the clustering algorithm 
+% Outputs:
+% ndx  - n-vector with the cluster index for every node 
+% Pi   - Projection matrix 
+% cost - cost of the partition (sum of broken edges)
+%
+% By Joao Pedro Hespanha, Copyright 2004
+
+% Make C double stochastic
+C=C/(max(sum(C)));
+C=C+sparse(1:n,1:n,1-sum(C));
+
+% Spectral partition
+options.issym=1;               % matrix is symmetric
+options.isreal=1;              % matrix is real
+options.tol=1e-6;              % decrease tolerance 
+options.maxit=500;             % increase maximum number of iterations
+options.disp=0;
+[U,D]=eigs(C,k,'la',options);  % only compute 'k' largest eigenvalues/vectors
+
+% Clustering -- requires the Statistics Toolbox
+[ndx,zs]=kmeans(U,k,'Distance','cosine','Start','sample','Replicates',nrep);
+
+Pi=sparse(1:length(ndx),ndx,1);
+cost=full(sum(sum(C))-trace(Pi'*C*Pi));
+\end{verbatim}
+}
+
+%\bibliographystyle{ieeetr}
+\bibliographystyle{abbrvnat}
+\bibliography{strings,graphs,probability,mysoftware,jph,crossrefs}
+
+\end{document}
+

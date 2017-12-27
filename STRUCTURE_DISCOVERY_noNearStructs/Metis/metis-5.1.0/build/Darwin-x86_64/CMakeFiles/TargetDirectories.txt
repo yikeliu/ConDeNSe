@@ -1,0 +1,7 @@
+/Users/Yike/Desktop/metis-5.1.0/build/Darwin-x86_64/programs/CMakeFiles/graphchk.dir
+/Users/Yike/Desktop/metis-5.1.0/build/Darwin-x86_64/libmetis/CMakeFiles/metis.dir
+/Users/Yike/Desktop/metis-5.1.0/build/Darwin-x86_64/programs/CMakeFiles/m2gmetis.dir
+/Users/Yike/Desktop/metis-5.1.0/build/Darwin-x86_64/programs/CMakeFiles/ndmetis.dir
+/Users/Yike/Desktop/metis-5.1.0/build/Darwin-x86_64/programs/CMakeFiles/gpmetis.dir
+/Users/Yike/Desktop/metis-5.1.0/build/Darwin-x86_64/programs/CMakeFiles/cmpfillin.dir
+/Users/Yike/Desktop/metis-5.1.0/build/Darwin-x86_64/programs/CMakeFiles/mpmetis.dir
